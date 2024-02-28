@@ -69,7 +69,7 @@ function generateEncryptedUrl(data) {
     const { encryptedData, iv } = encryptData(JSON.stringify(data));
     
     // Implement the logic to generate the encrypted URL
-    const encryptedUrl = 'https://verify.certs365.io/verify-documents?q=' + encodeURIComponent(encryptedData) + '&iv=' + encodeURIComponent(iv);
+    const encryptedUrl = 'https://verify.certs365.io/?q=' + encodeURIComponent(encryptedData) + '&iv=' + encodeURIComponent(iv);
     
     return encryptedUrl;
 }

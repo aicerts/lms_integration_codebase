@@ -3,7 +3,7 @@ const calculateHash = require("../../calculateHash");
 const web3i = require("../../web3i");
 const confirm = require("../../confirm");
 const QRCode = require("qrcode");
-const {  decryptData, generateEncryptedUrl } = require("../../common/cryptoFunction");
+const { decryptData, generateEncryptedUrl } = require("../../common/cryptoFunction");
 
 /**
  * Handles the issuance of a certificate.
@@ -20,14 +20,35 @@ const issueCertificate = async (req, res) => {
         const Grant_Date = req.body.Grant_Date;
         const Expiration_Date = req.body.Expiration_Date;
 
+        function convertDateFormat(dateString) {
+            // Parse the input date string
+            const parts = dateString?.split('/');
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10);
+            const year = parseInt(parts[2], 10);
+
+            // Create a Date object with the parsed values
+            const dateObject = new Date(year, month - 1, day);
+
+            // Format the date to 'YY/MM/DD'
+            const formattedDate = dateObject.toLocaleDateString('en-US', {
+                year: '2-digit',
+                month: '2-digit',
+                day: '2-digit'
+            }).replace(/\//g, '/');
+
+            return formattedDate;
+        }
         // Store certificate fields in an object
         const fields = {
             Certificate_Number: Certificate_Number,
             name: name,
             courseName: courseName,
-            Grant_Date: Grant_Date,
-            Expiration_Date: Expiration_Date,
+            Grant_Date: convertDateFormat(Grant_Date),
+            Expiration_Date: convertDateFormat(Expiration_Date),
         };
+
+
 
         // Hash each field individually
         const hashedFields = {};
@@ -54,11 +75,9 @@ const issueCertificate = async (req, res) => {
             // Confirm the transaction on the blockchain
             const hash = await confirm(tx);
 
-  // Generate a link to view the transaction on the Polygon (Matic) blockchain
+            // Generate a link to view the transaction on the Polygon (Matic) blockchain
             const polygonLink = `https://polygonscan.com/tx/${hash}`;
-
-            const dataWithLink = {...fields,polygonLink:polygonLink}
-
+            const dataWithLink = { ...fields, polygonLink: polygonLink }
             // Generate an encrypted URL with certificate details
             const urlLink = generateEncryptedUrl(dataWithLink);
 
@@ -66,6 +85,10 @@ const issueCertificate = async (req, res) => {
             const legacyQR = false;
 
             let qrCodeData = '';
+
+
+
+
             if (legacyQR) {
                 // Include additional data in QR code
                 qrCodeData = `Verify On Blockchain: ${polygonLink},
@@ -74,18 +97,19 @@ const issueCertificate = async (req, res) => {
                 Certification Name: ${courseName},
                 Grant Date: ${Grant_Date},
                 Expiration Date: ${Expiration_Date}`;
-                    
+
             } else {
                 // Directly include the URL in QR code
                 qrCodeData = urlLink;
             }
+
 
             // Generate QR code image with specified error correction level
             const qrCodeImage = await QRCode.toDataURL(qrCodeData, {
                 errorCorrectionLevel: "H",
             });
 
-          
+
 
             // Assemble certificate data for response
             const certificateData = {
@@ -96,7 +120,7 @@ const issueCertificate = async (req, res) => {
                 Course_Name: courseName,
                 Grant_Date: Grant_Date,
                 Expiration_Date: Expiration_Date,
-                
+
             };
 
             // Send the response with QR code image, Polygon link, and certificate details
@@ -127,22 +151,22 @@ const decodeCertificate = async (req, res) => {
 
         // Decrypt the link
         const decryptedData = decryptData(encryptedData, iv);
-        
+
         const originalData = JSON.parse(decryptedData);
         let isValid = false;
         let parsedData;
-        if(originalData !== null){
-       parsedData = {
-            "Certificate Number": originalData.Certificate_Number || "",
-            "Course Name": originalData.courseName || "",
-            "Expiration Date": originalData.Expiration_Date || "",
-            "Grant Date": originalData.Grant_Date || "",
-            "Name": originalData.name || "",
-            "Polygon URL": originalData.polygonLink || ""
-          };
-          isValid = true
+        if (originalData !== null) {
+            parsedData = {
+                "Certificate Number": originalData.Certificate_Number || "",
+                "Course Name": originalData.courseName || "",
+                "Expiration Date": originalData.Expiration_Date || "",
+                "Grant Date": originalData.Grant_Date || "",
+                "Name": originalData.name || "",
+                "Polygon URL": originalData.polygonLink || ""
+            };
+            isValid = true
         }
-          
+
 
         // Respond with the verification status and decrypted data if valid
         if (isValid) {
