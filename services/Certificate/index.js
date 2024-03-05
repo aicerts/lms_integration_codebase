@@ -4,6 +4,8 @@ const web3i = require("../../web3i");
 const confirm = require("../../confirm");
 const QRCode = require("qrcode");
 const { decryptData, generateEncryptedUrl } = require("../../common/cryptoFunction");
+const moment = require('moment');
+
 
 /**
  * Handles the issuance of a certificate.
@@ -20,25 +22,37 @@ const issueCertificate = async (req, res) => {
         const Grant_Date = req.body.Grant_Date;
         const Expiration_Date = req.body.Expiration_Date;
 
+        console.log("Grant_Date", Grant_Date);
+        console.log("Expiration_Date", Expiration_Date);
+
         function convertDateFormat(dateString) {
-            // Parse the input date string
-            const parts = dateString?.split('/');
-            const day = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10);
-            const year = parseInt(parts[2], 10);
+            // Define the possible date formats
+            const formats = ['MM/DD/YYYY', 'DD/MM/YYYY', 'DD MMMM, YYYY', 'DD MMM, YYYY', 'DD MMMM, YYYY'];
 
-            // Create a Date object with the parsed values
-            const dateObject = new Date(year, month - 1, day);
+            // Attempt to parse the input date string using each format
+            let dateObject;
+            for (const format of formats) {
+                dateObject = moment(dateString, format, true);
+                if (dateObject.isValid()) {
+                    break;
+                }
+            }
 
-            // Format the date to 'YY/MM/DD'
-            const formattedDate = dateObject.toLocaleDateString('en-US', {
-                year: '2-digit',
-                month: '2-digit',
-                day: '2-digit'
-            }).replace(/\//g, '/');
+            // Check if a valid date object was obtained
+            if (dateObject && dateObject.isValid()) {
+                // Convert the dateObject to moment (if it's not already)
+                const momentDate = moment(dateObject);
 
-            return formattedDate;
+                // Format the date to 'YY/MM/DD'
+                const formattedDate = momentDate.format('MM/DD/YY');
+
+                return formattedDate;
+            } else {
+                // Return null or throw an error based on your preference for handling invalid dates
+                return null;
+            }
         }
+
         // Store certificate fields in an object
         const fields = {
             Certificate_Number: Certificate_Number,
@@ -47,8 +61,6 @@ const issueCertificate = async (req, res) => {
             Grant_Date: convertDateFormat(Grant_Date),
             Expiration_Date: convertDateFormat(Expiration_Date),
         };
-
-
 
         // Hash each field individually
         const hashedFields = {};
@@ -86,9 +98,6 @@ const issueCertificate = async (req, res) => {
 
             let qrCodeData = '';
 
-
-
-
             if (legacyQR) {
                 // Include additional data in QR code
                 qrCodeData = `Verify On Blockchain: ${polygonLink},
@@ -103,13 +112,10 @@ const issueCertificate = async (req, res) => {
                 qrCodeData = urlLink;
             }
 
-
             // Generate QR code image with specified error correction level
             const qrCodeImage = await QRCode.toDataURL(qrCodeData, {
                 errorCorrectionLevel: "H",
             });
-
-
 
             // Assemble certificate data for response
             const certificateData = {
@@ -120,7 +126,6 @@ const issueCertificate = async (req, res) => {
                 Course_Name: courseName,
                 Grant_Date: Grant_Date,
                 Expiration_Date: Expiration_Date,
-
             };
 
             // Send the response with QR code image, Polygon link, and certificate details
@@ -164,9 +169,8 @@ const decodeCertificate = async (req, res) => {
                 "Name": originalData.name || "",
                 "Polygon URL": originalData.polygonLink || ""
             };
-            isValid = true
+            isValid = true;
         }
-
 
         // Respond with the verification status and decrypted data if valid
         if (isValid) {
